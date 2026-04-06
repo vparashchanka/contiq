@@ -8,6 +8,7 @@ import { chats } from '@/libs/db/schemas/chats';
 import { and, asc, eq } from 'drizzle-orm';
 import { retrieveContextForChat } from '@/libs/llm/rag';
 import { checkAndSpendTokens, TOKEN_COSTS } from '@/libs/db/tokens';
+import {transformQuery} from "@/libs/llm/chat";
 
 export const runtime = 'nodejs';
 
@@ -74,6 +75,8 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Limit history to the last N turns to keep the context window predictable.
   const recentHistory = history.slice(-MAX_HISTORY_TURNS * 2);
 
+  const userMessage = await transformQuery(message, recentHistory[recentHistory.length - 1]?.content || '');
+
   const result = streamText({
     model: openai('gpt-4o'),
     messages: [
@@ -82,7 +85,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         role: historyMessage.role as 'user' | 'assistant',
         content: historyMessage.content,
       })),
-      { role: 'user', content: message },
+      { role: 'user', content: userMessage },
     ],
     onFinish: async ({ text }) => {
       try {

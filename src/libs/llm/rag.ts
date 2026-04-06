@@ -14,10 +14,6 @@ export type SourceUsed = {
   pageNumber: number | null
 }
 
-// Maximum cosine distance (0–2 scale) for a chunk to be considered relevant.
-// Lower = stricter. 0.4 filters out chunks that are only loosely related.
-const SIMILARITY_THRESHOLD = 0.4;
-
 // Rough character budget for all context blocks combined. gpt-4o-mini has a
 // 128k token window; 1 token ≈ 4 chars. 12 000 chars ≈ 3 000 tokens, leaving
 // plenty of room for history + system prompt overhead.
@@ -44,6 +40,12 @@ export async function retrieveContextForChat(params: {
   });
   const vectorStr = `[${embedding.join(',')}]`;
 
+  const projectSources = await db
+    .select()
+    .from(sources)
+    .where(eq(sources.projectId, projectId))
+    .execute();
+
   const topChunks = await db
     .select({
       id: chunks.id,
@@ -61,7 +63,6 @@ export async function retrieveContextForChat(params: {
       and(
         eq(chunks.projectId, projectId),
         eq(chunks.userId, userId),
-        sql`chunks.embedding <=> ${vectorStr}::vector < ${SIMILARITY_THRESHOLD}`,
       ),
     )
     .orderBy(sql`chunks.embedding <=> ${vectorStr}::vector`)
@@ -93,6 +94,10 @@ export async function retrieveContextForChat(params: {
     }
   }
 
+  const contextSources = projectSources.map((source) => {
+    return `- ${source.name}, ${source.type}`;
+  }).join('\n');
+
   const context = budgetedChunks
     .map(
       (chunk, index) =>
@@ -105,6 +110,14 @@ export async function retrieveContextForChat(params: {
       ? `You are a helpful AI assistant that answers questions based on the provided project documents.
 Use the following document excerpts to answer the user's question. If the answer cannot be found in the provided context, say so honestly.
 Answer in the same language as the user's question. Be thorough and detailed.
+When answering, always specify which document your answer comes from.
+If information comes from multiple documents, clearly distinguish between them.
+If you cannot find the answer in the provided context, say so explicitly.
+
+The user has uploaded the following documents:
+<full-source-list<
+${contextSources}
+</full-source-list>
 
 Context:
 ${context}`

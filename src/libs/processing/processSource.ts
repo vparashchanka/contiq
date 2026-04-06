@@ -26,6 +26,18 @@ export async function processSource(sourceId: string): Promise<void> {
     else if (source.type === 'text') rawChunks = await processText(source);
     else rawChunks = await processFile(source);
 
+    rawChunks = rawChunks.map((chunk) => ({
+      ...chunk,
+      content: `
+        ---
+        Source: ${source.name}
+        Type: ${source.type}
+        ${source.url ? `URL: ${source.url}` : ''}
+        ---
+        ${chunk.content.trim()}
+      `,
+    }));
+
     const embeddings: number[][] = [];
     for (let i = 0; i < rawChunks.length; i += EMBED_BATCH) {
       const batch = rawChunks.slice(i, i + EMBED_BATCH);
