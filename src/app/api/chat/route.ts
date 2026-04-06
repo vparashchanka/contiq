@@ -5,13 +5,15 @@ import { createClient } from '@/libs/supabase/server';
 import { db } from '@/libs/db/db';
 import { messages } from '@/libs/db/schemas/messages';
 import { chats } from '@/libs/db/schemas/chats';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { retrieveContextForChat } from '@/libs/llm/rag';
 import { checkAndSpendTokens, TOKEN_COSTS } from '@/libs/db/tokens';
 
 export const runtime = 'nodejs';
 
 const SOURCES_SENTINEL = '\n\n__SOURCES__';
+// Keep at most this many prior turns (user+assistant pairs) to bound context size.
+const MAX_HISTORY_TURNS = 10;
 
 export async function POST(req: NextRequest): Promise<Response> {
   const supabase = await createClient();
@@ -43,6 +45,14 @@ export async function POST(req: NextRequest): Promise<Response> {
     return new Response(tokenResult.error, { status: 402 });
   }
 
+  // Fetch existing conversation history before inserting the new message so the
+  // new user turn is not double-counted in the messages we send to the LLM.
+  const history = await db
+    .select({ role: messages.role, content: messages.content })
+    .from(messages)
+    .where(and(eq(messages.chatId, chatId), eq(messages.userId, user.id)))
+    .orderBy(asc(messages.createdAt));
+
   await db.insert(messages).values({
     chatId,
     userId: user.id,
@@ -53,14 +63,25 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   const { systemPrompt, sourcesUsed } = await retrieveContextForChat({
     message,
+    history: history.map((historyMessage) => ({
+      role: historyMessage.role as 'user' | 'assistant',
+      content: historyMessage.content,
+    })),
     projectId,
     userId: user.id,
   });
 
+  // Limit history to the last N turns to keep the context window predictable.
+  const recentHistory = history.slice(-MAX_HISTORY_TURNS * 2);
+
   const result = streamText({
-    model: openai('gpt-4o-mini'),
+    model: openai('gpt-4o'),
     messages: [
       { role: 'system', content: systemPrompt },
+      ...recentHistory.map((historyMessage) => ({
+        role: historyMessage.role as 'user' | 'assistant',
+        content: historyMessage.content,
+      })),
       { role: 'user', content: message },
     ],
     onFinish: async ({ text }) => {

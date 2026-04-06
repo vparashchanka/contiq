@@ -26,11 +26,11 @@ features/<domain>/
         ├── ComponentName.tsx
         ├── ComponentName.styles.ts        # CVA variants (optional)
         ├── ComponentName.fallback.tsx      # Suspense fallback (optional)
-        └── components/               # Sub-components (same structure, recursive)
+        └── components/               # Sub-components (same structure, all subcomponents which is used under SubComponent set to its sibling, to reduce too high nesting)
             └── SubComponentName/
                 ├── SubComponentName.tsx
                 └── SubComponentName.styles.ts
-libs/ # can contains folders and single files (e.g. schemas/api.ts, dateUtils.ts);
+libs/ # can contains folders and single files (e.g. schemas/api.ts, llm/chat.ts, dateUtils.ts);
 components/ # for global components used across features (e.g. Layout, Header, Footer, Button)
 └── ComponentName/
         ├── ComponentName.tsx
@@ -44,7 +44,7 @@ components/ # for global components used across features (e.g. Layout, Header, F
 
 ### Component Rules
 
-- **Max 150 lines** per component function body (imports excluded).
+- **Max 100 lines** per component function body (imports excluded).
 - **Tailwind only** for styling — no inline styles.
 - **CVA variants** go in a separate `.styles.ts` file, not inside the component.
 - **Max 1 component per file**
