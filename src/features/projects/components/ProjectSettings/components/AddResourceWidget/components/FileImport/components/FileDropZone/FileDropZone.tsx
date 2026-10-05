@@ -3,8 +3,7 @@
 import { useCallback, useRef, useState } from "react";
 import { AlertTriangle, File, Upload, X } from "lucide-react";
 import { cn } from "@/libs/utils/cn";
-
-const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from "@/libs/fileUpload";
 
 interface FileDropZoneProps {
   file: File | null;
@@ -77,10 +76,10 @@ export function FileDropZone({ file, onFileChange }: FileDropZoneProps) {
         </div>
         <div className="text-center">
           <p className={cn("text-sm font-medium", sizeError ? "text-red-600" : "text-brand-700")}>
-            {sizeError ? "File exceeds 2 MB limit" : isDragging ? "Release to upload" : "Drop your document here"}
+            {sizeError ? `File exceeds ${MAX_FILE_SIZE_MB} MB limit` : isDragging ? "Release to upload" : "Drop your document here"}
           </p>
           <p className={cn("mt-1 text-xs", sizeError ? "text-red-400" : "text-brand-400")}>
-            {sizeError ? "Please choose a smaller PDF file" : "or click to browse — PDF files up to 2 MB"}
+            {sizeError ? "Please choose a smaller PDF file" : `or click to browse — PDF files up to ${MAX_FILE_SIZE_MB} MB`}
           </p>
         </div>
         <input ref={inputRef} type="file" accept=".pdf" className="hidden"

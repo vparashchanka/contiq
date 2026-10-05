@@ -8,6 +8,7 @@ import { uploadFile } from '@/libs/supabase/files';
 import { publishProcessJob } from '@/libs/qstash/jobs';
 import { revalidatePath } from 'next/cache';
 import { checkAndSpendTokens, TOKEN_COSTS } from '@/libs/db/tokens';
+import { MAX_FILE_SIZE, MAX_FILE_SIZE_MB } from '@/libs/fileUpload';
 
 export async function addFileSource(projectId: string, file: File, name?: string): Promise<{ error: string } | void> {
   const supabase = await createClient();
@@ -17,8 +18,7 @@ export async function addFileSource(projectId: string, file: File, name?: string
 
   if (!user) throw new Error('Unauthorized');
 
-  const MAX_FILE_SIZE = 2 * 1024 * 1024;
-  if (file.size > MAX_FILE_SIZE) throw new Error('File size exceeds the 2 MB limit');
+  if (file.size > MAX_FILE_SIZE) throw new Error(`File size exceeds the ${MAX_FILE_SIZE_MB} MB limit`);
 
   const tokenResult = await checkAndSpendTokens(user.id, TOKEN_COSTS.file, `File processing: ${name || file.name}`);
   if (!tokenResult.success) return { error: tokenResult.error };
